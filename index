@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Subir fotos - Simulacro de Hoy</title>
+  <meta name="description" content="Página para cargar y descargar fotos del simulacro de hoy"/>
+  <style>
+    :root{--bg:#f5f7fb;--card:#ffffff;--accent:#2b8e88;--muted:#556;}
+    *{box-sizing:border-box;font-family:Inter, system-ui, Arial, sans-serif}
+    body{margin:0;background:var(--bg);color:var(--muted);padding:28px;}
+    .container{max-width:980px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    header h1{font-size:20px;margin:0;color:#0b3634}
+    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(10,30,30,0.06)}
+    .drop{border:2px dashed rgba(43,142,136,0.18);border-radius:10px;padding:26px;text-align:center;cursor:pointer}
+    .drop.dragover{background:rgba(43,142,136,0.03)}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .btn{background:var(--accent);color:white;padding:10px 14px;border-radius:8px;border:0;cursor:pointer}
+    .btn.secondary{background:#eee;color:#333}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:16px}
+    .thumb{background:#fafafa;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:8px;align-items:center}
+    .thumb img{max-width:100%;height:120px;object-fit:cover;border-radius:6px}
+    .meta{font-size:12px;color:#666;width:100%;display:flex;justify-content:space-between}
+    label{font-size:13px;color:#0b3634}
+    .row{display:flex;gap:8px;align-items:center}
+    input[type="text"], select{padding:8px;border-radius:6px;border:1px solid #e0e6ea}
+    footer{margin-top:18px;text-align:right;color:#666;font-size:13px}
+    @media (max-width:520px){.row{flex-direction:column;align-items:stretch}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Subir fotos — Simulacro de hoy</h1>
+    </header>
+
+    <div class="card">
+      <div id="drop" class="drop">
+        Arrastra tus fotos aquí o haz click para seleccionar archivos
+        <div style="margin-top:8px;font-size:13px;color:#6b7">(jpg, png, heic — máximo 10 archivos a la vez)</div>
+      </div>
+
+      <input id="fileInput" type="file" accept="image/*" multiple style="display:none" />
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="row" style="flex:1">
+          <label for="ubicacion">Ubicación/Equipo (opcional)</label>
+          <input id="ubicacion" type="text" placeholder="Ej: Plaza central / Equipo A" style="margin-left:8px;flex:1" />
+        </div>
+        <div class="row">
+          <label for="fecha">Fecha</label>
+          <input id="fecha" type="text" readonly style="margin-left:8px;width:170px" />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="clearBtn" class="btn secondary">Borrar todo</button>
+        <button id="downloadZip" class="btn">Descargar ZIP con fotos + metadata</button>
+        <button id="downloadJson" class="btn secondary">Descargar JSON de metadata</button>
+      </div>
+
+      <div id="grid" class="grid" aria-live="polite"></div>
+      <footer>Las imágenes se mantienen en tu navegador hasta que descargues o cierres la pestaña.</footer>
+    </div>
+  </div>
+
+  <!-- Dependencias para crear ZIP y guardar archivos -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.0/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <script>
+    // --- Configuración inicial ---
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('fileInput');
+    const grid = document.getElementById('grid');
+    const fechaInput = document.getElementById('fecha');
+    const ubicacionInput = document.getElementById('ubicacion');
+    const clearBtn = document.getElementById('clearBtn');
+    const downloadZip = document.getElementById('downloadZip');
+    const downloadJson = document.getElementById('downloadJson');
+
+    // Guardaremos objetos {file, name, dateAdded, size, type, notes}
+    let fotos = [];
+
+    // Fecha de "hoy" en formato legible y en ISO
+    const hoy = new Date();
+    const fechaStr = hoy.toLocaleString();
+    fechaInput.value = fechaStr;
+
+    // --- Helpers ---
+    function agregarFiles(fileList){
+      const maxFiles = 50; // límite razonable
+      const incoming = Array.from(fileList).slice(0, maxFiles);
+      incoming.forEach((file)=>{
+        if(!file.type.startsWith('image/')) return;
+        const id = Math.random().toString(36).slice(2,9);
+        const entry = {id, file, name: file.name, dateAdded: new Date().toISOString(), size: file.size, type: file.type, notes: ''};
+        fotos.push(entry);
+        createThumb(entry);
+      });
+    }
+
+    function createThumb(entry){
+      const div = document.createElement('div');
+      div.className = 'thumb';
+      div.dataset.id = entry.id;
+
+      const img = document.createElement('img');
+      img.alt = entry.name;
+      const reader = new FileReader();
+      reader.onload = e => img.src = e.target.result;
+      reader.readAsDataURL(entry.file);
+
+      const name = document.createElement('div');
+      name.style.fontSize='13px';
+      name.style.textAlign='center';
+      name.textContent = entry.name;
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.innerHTML = `<span>${(entry.size/1024|0)} KB</span><button class="btn secondary" style="padding:4px 6px;font-size:12px">Eliminar</button>`;
+
+      const notes = document.createElement('input');
+      notes.type='text';
+      notes.placeholder='Notas (ej: ubicación exacta, nombre)';
+      notes.value = entry.notes;
+      notes.style.width='100%';
+      notes.addEventListener('input', ()=>{
+        entry.notes = notes.value;
+      });
+
+      const downloadBtn = document.createElement('button');
+      downloadBtn.textContent='Descargar individual';
+      downloadBtn.className='btn secondary';
+      downloadBtn.style.width='100%';
+      downloadBtn.addEventListener('click', ()=>{
+        saveAs(entry.file, entry.name);
+      });
+
+      const eliminar = meta.querySelector('button');
+      eliminar.addEventListener('click', ()=>{
+        fotos = fotos.filter(f=>f.id!==entry.id);
+        div.remove();
+      });
+
+      div.appendChild(img);
+      div.appendChild(name);
+      div.appendChild(notes);
+      div.appendChild(downloadBtn);
+      div.appendChild(meta);
+      grid.prepend(div);
+    }
+
+    // --- Eventos de drop / file select ---
+    drop.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', (e)=>{
+      agregarFiles(e.target.files);
+      fileInput.value='';
+    });
+
+    ;['dragenter','dragover'].forEach(ev=>{
+      drop.addEventListener(ev,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.add('dragover')});
+    });
+    ;['dragleave','drop'].forEach(ev=>{
+      drop.addEventListener(ev,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.remove('dragover')});
+    });
+
+    drop.addEventListener('drop', (e)=>{
+      const dt = e.dataTransfer;
+      if(dt && dt.files) agregarFiles(dt.files);
+    });
+
+    // --- Botones ---
+    clearBtn.addEventListener('click', ()=>{
+      if(!confirm('¿Borrar todas las fotos cargadas en esta sesión?')) return;
+      fotos = [];
+      grid.innerHTML='';
+    });
+
+    downloadJson.addEventListener('click', ()=>{
+      if(fotos.length===0){alert('No hay fotos para exportar');return}
+      const meta = fotos.map(f=>({name:f.name,dateAdded:f.dateAdded,size:f.size,type:f.type,notes:f.notes,ubicacion:ubicacionInput.value,fecha_simulacro:fechaStr}));
+      const blob = new Blob([JSON.stringify(meta, null, 2)],{type:'application/json'});
+      saveAs(blob, `metadata_simulacro_${(new Date()).toISOString().slice(0,10)}.json`);
+    });
+
+    downloadZip.addEventListener('click', async ()=>{
+      if(fotos.length===0){alert('No hay fotos para descargar');return}
+      const zip = new JSZip();
+      const folder = zip.folder('fotos_simulacro') || zip;
+
+      // añadir cada archivo
+      for(const f of fotos){
+        // leer como arrayBuffer
+        const ab = await f.file.arrayBuffer();
+        folder.file(f.name, ab);
+      }
+
+      // metadata
+      const meta = fotos.map(f=>({name:f.name,dateAdded:f.dateAdded,size:f.size,type:f.type,notes:f.notes,ubicacion:ubicacionInput.value,fecha_simulacro:fechaStr}));
+      zip.file('metadata.json', JSON.stringify(meta, null, 2));
+
+      const binary = await zip.generateAsync({type:'blob'});
+      saveAs(binary, `fotos_simulacro_${(new Date()).toISOString().slice(0,10)}.zip`);
+    });
+
+    // Prevent accidental navigation
+    window.addEventListener('beforeunload', (e)=>{
+      if(fotos.length>0){
+        e.preventDefault();
+        e.returnValue='Hay fotos sin guardar. Si sales, se perderán.';
+      }
+    });
+
+  </script>
+</body>
+</html>
