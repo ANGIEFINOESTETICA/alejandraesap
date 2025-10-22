@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inicio — Simulacro de Hoy</title>
+  <meta name="description" content="Portal principal para el simulacro de hoy"/>
+  <style>
+    :root{--bg:#f5f7fb;--card:#ffffff;--accent:#2b8e88;--muted:#556;}
+    *{box-sizing:border-box;font-family:Inter, system-ui, Arial, sans-serif}
+    body{margin:0;background:var(--bg);color:var(--muted);}
+    header{display:flex;justify-content:center;align-items:center;background:var(--accent);color:white;padding:18px;font-size:22px;font-weight:600;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+    main{max-width:880px;margin:40px auto;background:var(--card);padding:30px;border-radius:14px;box-shadow:0 6px 18px rgba(10,30,30,0.06);text-align:center;}
+    h2{color:var(--accent);margin-top:0;}
+    p{color:#334;margin-bottom:24px;font-size:16px;}
+    .links{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:30px;}
+    a.btn{background:var(--accent);color:white;padding:14px 22px;border-radius:10px;text-decoration:none;transition:all .2s ease;font-weight:500;box-shadow:0 4px 10px rgba(43,142,136,0.2);}
+    a.btn:hover{background:#23736e;transform:translateY(-2px);}
+    footer{text-align:center;margin-top:40px;color:#777;font-size:13px;padding:16px;}
+    @media (max-width:600px){main{margin:20px;padding:20px;}a.btn{width:100%;text-align:center;}}
+  </style>
+</head>
+<body>
+  <header>Simulacro de Hoy — Portal Principal</header>
+  <main>
+    <h2>Bienvenido/a</h2>
+    <p>Selecciona una de las siguientes opciones para continuar con las tareas del simulacro:</p>
+    <div class="links">
+      <a href="UploadFotosSimulacro.html" class="btn">📸 Subir fotos del simulacro</a>
+      <a href="#" class="btn" onclick="alert('Sección en desarrollo')">📊 Ver reportes</a>
+    </div>
+  </main>
+  <footer>&copy; 2025 Simulacro de Hoy. Todos los derechos reservados.</footer>
+</body>
+</html>
